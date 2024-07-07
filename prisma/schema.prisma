@@ -1,0 +1,85 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int        @id @default(autoincrement())
+  username  String     @unique @db.VarChar(50)
+  password  String     @db.VarChar(255)
+  nickname  String     @db.VarChar(50)
+  createdAt DateTime   @default(now())
+  Question  Question[]
+
+  @@index([username])
+}
+
+model Question {
+  questionId    Int         @id @default(autoincrement())
+  userId        Int
+  user          User        @relation(fields: [userId], references: [id]) // 表示这个字段是 User 表的外键
+  answerCount   Int         @default(0) // 答卷数量，默认为0
+  createdAt     DateTime    @default(now()) // 创建时间，默认为当前时间
+  updatedAt     DateTime    @updatedAt // 更新时间，每次更新记录时自动设置为当前时间
+  isDeleted     Boolean     @default(false) // 是否假删除，默认为false
+  isPublished   Boolean     @default(false) // 是否发布，默认为false
+  isStar        Boolean     @default(false) // 是否收藏，默认为false
+  title         String      @default("这是问卷标题") @db.VarChar(100)
+  js            String      @db.VarChar(255)
+  desc          String      @default("这是问卷的描述") @db.VarChar(200)
+  css           String      @db.VarChar(255)
+  componentList Component[]
+  Answer        Answer[]
+}
+
+enum ComponentType {
+  questionCheckbox
+  questionRadio
+  questionInput
+  questionTextArea
+  questionInfo
+  questionParagraph
+  questionTitle
+}
+
+model Component {
+  fe_id      String        @id
+  isHidden   Boolean       @default(false) // 是否隐藏，默认为false
+  isLocked   Boolean       @default(false) // 是否锁定，默认为false
+  title      String        @db.VarChar(100)
+  type       ComponentType
+  props      Json
+  questionId Int
+  question   Question      @relation(fields: [questionId], references: [questionId])
+  AnswerItem AnswerItem[]
+  order      Int           @default(0)
+}
+
+// 答卷表
+model Answer {
+  answerId    Int          @id @default(autoincrement())
+  questionId  Int
+  question    Question     @relation(fields: [questionId], references: [questionId])
+  createdAt   DateTime     @default(now())
+  answerItems AnswerItem[]
+}
+
+// 答案项表
+model AnswerItem {
+  id        Int       @id @default(autoincrement())
+  answerId  Int
+  answer    Answer    @relation(fields: [answerId], references: [answerId])
+  fe_id     String
+  value     String
+  component Component @relation(fields: [fe_id], references: [fe_id])
+}
