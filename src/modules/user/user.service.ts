@@ -1,6 +1,4 @@
 import { Injectable, Inject, ConflictException, InternalServerErrorException } from '@nestjs/common';
-import { CreateUserDto } from './dto/create-user.dto';
-// import { UpdateUserDto } from './dto/update-user.dto';
 import { Prisma } from '@prisma/client';
 import * as argon2 from 'argon2';
 import { MyLogger } from '../../my_logger';

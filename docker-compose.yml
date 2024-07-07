@@ -1,0 +1,35 @@
+version: '1.0'
+services:
+  nest-app:
+    build:
+      context: ./
+      dockerfile: ./Dockerfile
+    ports:
+      - 3005:3005
+    depends_on:
+      - mysql-container
+      - redis-container
+    restart: always
+    networks:
+      - common-network
+  mysql-container:
+    image: mysql
+    volumes:
+       - /var/lib/mysql-data:/var/lib/mysql
+    command: mysqld --character-set-server=utf8mb4 --collation-server=utf8mb4_general_ci # 设置默认字符集
+    environment:
+      MYSQL_DATABASE: wenjuan_fe
+      MYSQL_ROOT_PASSWORD: 123456
+    restart: always
+    networks:
+      - common-network
+  redis-container:
+    image: redis
+    volumes:
+      - /var/lib/redis-data:/data
+    restart: always
+    networks:
+      - common-network
+networks:
+  common-network:
+    driver: bridge
