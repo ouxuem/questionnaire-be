@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { UserModule } from './modules/user/user.module';
 import { UploadModule } from './modules/upload/upload.module';
 import { AuthModule } from './modules/auth/auth.module';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule,ConfigService  } from '@nestjs/config';
 import { PrismaService } from './modules/db/prisma.service';
 import { WinstonModule } from './winston/winston.module';
 import { transports, format } from 'winston';
@@ -15,11 +15,15 @@ import { RedisModule } from './modules/redis/redis.module';
 import { BullModule } from '@nestjs/bullmq';
 @Module({
   imports: [
-    BullModule.forRoot({
-      connection: {
-        host: 'localhost',
-        port: 6379
-      }
+    BullModule.forRootAsync({
+      imports: [ConfigModule],
+      useFactory: async (configService: ConfigService) => ({
+        connection: {
+          host: configService.get('redis_server_host'),
+          port: configService.get('redis_server_port')
+        },
+      }),
+      inject: [ConfigService],
     }),
    
     RedisModule,
