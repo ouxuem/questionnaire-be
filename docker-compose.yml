@@ -9,6 +9,11 @@ services:
     depends_on:
       - mysql-container
       - redis-container
+    environment:
+      - DATABASE_URL=mysql://root:123456@mysql-container:3306/wenjuan_fe
+      - redis_server_host=redis-container
+      - redis_server_port=6379
+      - redis_server_db=0
     restart: always
     networks:
       - common-network

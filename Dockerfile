@@ -1,27 +1,39 @@
-FROM node:20-alpine
+# 构建阶段
+FROM node:18.20-alpine3.19 as build-stage
 
 WORKDIR /app
 
 COPY package.json .
 
-COPY pnpm-lock.yaml* .
-
 RUN npm config set registry https://registry.npmmirror.com/
 
-RUN npm install -g pnpm
-
-RUN pnpm config set registry https://registry.npmmirror.com/
-
-RUN pnpm install
+RUN npm install
 
 COPY . .
 
 RUN npx prisma generate
 
-RUN npx prisma migrate deploy
-
 RUN npm run build
 
-EXPOSE 3000
+# 运行阶段
+FROM node:18.20-alpine3.19 as production-stage
 
-CMD [ "node", "./dist/main.js" ]
+COPY --from=build-stage /app/dist /app
+COPY --from=build-stage /app/package.json /app/package.json
+COPY --from=build-stage /app/prisma /app/prisma
+
+WORKDIR /app
+
+RUN npm config set registry https://registry.npmmirror.com/
+
+RUN npm install pm2 -g
+
+RUN npm install --production
+
+COPY ecosystem.config.js ./
+
+COPY .env ./
+
+EXPOSE 3005
+
+CMD npm run pm2-start
