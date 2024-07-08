@@ -1,14 +1,25 @@
 version: '3.8'
 services:
+  fe-app:
+    image: questionnaire-fe-container:first
+    ports:
+      - 80:80
+    depends_on:
+      - nest-app
+    restart: always
+    networks:
+      - common-network
   nest-app:
     build:
       context: ./
       dockerfile: ./Dockerfile
-    ports:
-      - 3005:3005
+    # ports:
+    #   - 3005:3005
     depends_on:
-      - mysql-container
-      - redis-container
+      mysql-container:
+        condition: service_healthy
+      redis-container:
+        condition: service_healthy
     environment:
       - DATABASE_URL=mysql://root:123456@mysql-container:3306/wenjuan_fe
       - redis_server_host=redis-container
@@ -20,11 +31,16 @@ services:
   mysql-container:
     image: mysql
     volumes:
-       - /var/lib/mysql-data:/var/lib/mysql
+      - /var/lib/mysql-data:/var/lib/mysql
     command: mysqld --character-set-server=utf8mb4 --collation-server=utf8mb4_general_ci # 设置默认字符集
     environment:
       MYSQL_DATABASE: wenjuan_fe
       MYSQL_ROOT_PASSWORD: 123456
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost']
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: always
     networks:
       - common-network
@@ -32,6 +48,11 @@ services:
     image: redis
     volumes:
       - /var/lib/redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: always
     networks:
       - common-network

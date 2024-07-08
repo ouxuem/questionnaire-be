@@ -34,6 +34,8 @@ COPY ecosystem.config.js ./
 
 COPY .env ./
 
+RUN npx prisma generate
+
 EXPOSE 3005
 
-CMD npm run pm2-start
+CMD npx prisma db push --force-reset && npm run pm2-start
