@@ -16,10 +16,8 @@ services:
     # ports:
     #   - 3005:3005
     depends_on:
-      mysql-container:
-        condition: service_healthy
-      redis-container:
-        condition: service_healthy
+      - mysql-container
+      - redis-container
     environment:
       - DATABASE_URL=mysql://root:123456@mysql-container:3306/wenjuan_fe
       - redis_server_host=redis-container
@@ -36,11 +34,6 @@ services:
     environment:
       MYSQL_DATABASE: wenjuan_fe
       MYSQL_ROOT_PASSWORD: 123456
-    healthcheck:
-      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost']
-      interval: 10s
-      timeout: 5s
-      retries: 5
     restart: always
     networks:
       - common-network
@@ -48,11 +41,6 @@ services:
     image: redis
     volumes:
       - /var/lib/redis-data:/data
-    healthcheck:
-      test: ['CMD', 'redis-cli', 'ping']
-      interval: 10s
-      timeout: 5s
-      retries: 5
     restart: always
     networks:
       - common-network
