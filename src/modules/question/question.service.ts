@@ -22,23 +22,6 @@ export class QuestionService {
   @Inject(RedisService)
   private redisService: RedisService;
 
-  // 转换函数
-  private convertToGetOneQuestionVo(data: any): GetOneQuestionVo {
-    return {
-      css: data.css,
-      js: data.js,
-      title: data.title,
-      desc: data.desc,
-      isPublished: data.isPublished,
-      isDeleted: data.isDeleted,
-      id: data.questionId.toString(), // 假设 questionId 是数字，转换为字符串
-      componentList: data.componentList.map((component) => ({
-        ...component,
-        props: JSON.parse(component.props)
-      }))
-    };
-  }
-
   async create_question(user_id: number) {
     try {
       // 创建新的问卷
@@ -85,9 +68,7 @@ export class QuestionService {
       if (!question) {
         throw new NotFoundException('问卷不存在');
       }
-      const questionVo = this.convertToGetOneQuestionVo(question);
-
-      return questionVo;
+      return question;
     } catch (error) {
       this.logger.error(`查询单个问卷失败: ${error}`, 'QuestionService');
       throw new InternalServerErrorException('系统错误，请联系管理员');
@@ -171,7 +152,7 @@ export class QuestionService {
               isLocked: component.isLocked ?? false,
               title: component.title,
               type: component.type,
-              props: JSON.stringify(component.props),
+              props: component.props,
               questionId: number_question_id,
               order: i // 使用索引作为顺序
             }));

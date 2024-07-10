@@ -89,7 +89,7 @@ export class QuestionSaveProcessor extends WorkerHost {
               isLocked: component.isLocked ?? false,
               title: component.title,
               type: component.type,
-              props: JSON.stringify(component.props),
+              props: component.props,
               questionId: number_question_id,
               order: i // 使用索引作为顺序
             }));
