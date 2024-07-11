@@ -16,4 +16,14 @@ export class RedisService {
     const data = await this.redisClient.get(`questionId:${questionId}`);
     return data ? JSON.parse(data) : null;
   }
+
+  async checkFingerprint(fingerprint: string): Promise<boolean> {
+    const value = await this.redisClient.get(fingerprint);
+    return value !== null;
+  }
+
+  async addFingerprint(fingerprint: string): Promise<void> {
+    const expireTimeInSeconds: number = 1800;
+    await this.redisClient.set(fingerprint, '1', 'EX', expireTimeInSeconds);
+  }
 }

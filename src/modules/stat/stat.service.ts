@@ -3,6 +3,7 @@ import { PrismaService } from '../db/prisma.service';
 import { WINSTON_LOGGER_TOKEN } from '../../winston/winston.module';
 import { MyLogger } from '../../my_logger';
 import { PostAnswerDto } from './dto/stat.dto';
+import { RedisService } from '../redis/redis.service';
 
 @Injectable()
 export class StatService {
@@ -12,10 +13,22 @@ export class StatService {
   @Inject(WINSTON_LOGGER_TOKEN)
   private logger: MyLogger;
 
+  @Inject(RedisService)
+  private redisService: RedisService;
+
   async submit_answer(submit_data: PostAnswerDto) {
-    const { questionId, answerList } = submit_data;
+    const { questionId, answerList, fingerprint } = submit_data;
     const number_question_id = parseInt(questionId, 10);
     try {
+      const exists = await this.redisService.checkFingerprint(fingerprint);
+
+      if (exists) {
+        this.logger.error(`${questionId}-重复提交`, 'StatService');
+        throw new NotFoundException('请不要重复提交');
+      }
+
+      await this.redisService.addFingerprint(fingerprint);
+
       await this.prisma.$transaction(async (prisma) => {
         // 创建新的 Answer
         const newAnswer = await prisma.answer.create({
@@ -42,6 +55,9 @@ export class StatService {
         return true;
       });
     } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error; // 直接重新抛出 BadRequestException
+      }
       this.logger.error(`提交问卷失败: ${error}`, 'StatService');
       throw new InternalServerErrorException('提交问卷失败');
     }
@@ -172,7 +188,7 @@ export class StatService {
 
   async get_question_count() {
     const question_total = await this.prisma.question.count({
-      where:{
+      where: {
         isDeleted: false
       }
     });

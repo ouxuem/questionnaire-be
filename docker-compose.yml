@@ -9,12 +9,21 @@ services:
     restart: always
     networks:
       - common-network
+  client-app:
+    image: questionnaire-client-container:first
+    ports:
+      - 3000:3000
+    depends_on:
+      - nest-app
+    restart: always
+    networks:
+      - common-network
   nest-app:
     build:
       context: ./
       dockerfile: ./Dockerfile
-    # ports:
-    #   - 3005:3005
+    ports:
+      - 3005:3005
     depends_on:
       - mysql-container
       - redis-container

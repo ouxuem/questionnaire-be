@@ -12,4 +12,5 @@ export type component_list_type = {
     | 'questionInfo'
     | 'questionCheckbox';
   props: Record<string, any>;
+  order: number;
 };

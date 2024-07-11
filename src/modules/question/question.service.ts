@@ -1,8 +1,15 @@
-import { BadRequestException, Inject, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException
+} from '@nestjs/common';
 import { PrismaService } from '../db/prisma.service';
 import { WINSTON_LOGGER_TOKEN } from '../../winston/winston.module';
 import { MyLogger } from '../../my_logger';
-import { GetOneQuestionVo, UpdateQuestionDto } from './dto/question.dto';
+import { UpdateQuestionDto } from './dto/question.dto';
 import { Prisma } from '@prisma/client';
 import { convertToChinaTime } from '../../utils';
 import { nanoid } from 'nanoid';
@@ -68,7 +75,11 @@ export class QuestionService {
       if (!question) {
         throw new NotFoundException('问卷不存在');
       }
-      return question;
+
+      return {
+        ...question,
+        id: question.questionId
+      };
     } catch (error) {
       this.logger.error(`查询单个问卷失败: ${error}`, 'QuestionService');
       throw new InternalServerErrorException('系统错误，请联系管理员');
@@ -88,7 +99,13 @@ export class QuestionService {
         // 查询数据库中的问卷信息
         const existing_question = await prisma.question.findUnique({
           where: { questionId: number_question_id },
-          include: { componentList: true }
+          include: {
+            componentList: {
+              orderBy: {
+                order: 'asc' // 按 order 升序排列
+              }
+            }
+          }
         });
 
         if (!existing_question) {
@@ -101,70 +118,85 @@ export class QuestionService {
         let cacheData: any = {
           id: question_id
         };
-        if (existing_question.isPublished) {
-          // 如果问卷已发布，只允许修改 isStar 和 isDeleted
-          if (updateData.isStar !== undefined) {
-            updateFields.isStar = updateData.isStar;
-            cacheData.isStar = updateData.isStar;
+
+        const fieldsToUpdate = ['isDeleted', 'isStar', 'isPublished', 'title', 'css', 'js', 'desc'];
+        fieldsToUpdate.forEach((field) => {
+          if (updateData[field] !== undefined) {
+            updateFields[field] = updateData[field];
+            cacheData[field] = updateData[field];
           }
-          if (updateData.isDeleted !== undefined) {
-            updateFields.isDeleted = updateData.isDeleted;
-            cacheData.isDeleted = updateData.isDeleted;
-          }
-          // 如果尝试将 isPublished 从 true 改为 false
-          if (updateData.isPublished === false) {
-            // 首先删除所有相关的 AnswerItem
+        });
+
+        if (updateData.componentList) {
+          const existingComponents = await prisma.component.findMany({
+            where: { questionId: number_question_id },
+            select: { fe_id: true }
+          });
+
+          // 找出要删除的组件的 fe_id
+          const existingFeIds = new Set(existingComponents.map((comp) => comp.fe_id));
+          const newFeIds = new Set(updateData.componentList.map((comp) => comp.fe_id));
+          const feIdsToDelete = [...existingFeIds].filter((id) => !newFeIds.has(id));
+          if (feIdsToDelete.length > 0) {
             await prisma.answerItem.deleteMany({
               where: {
-                answer: {
-                  questionId: number_question_id
+                fe_id: { in: feIdsToDelete }
+              }
+            });
+
+            // 删除组件
+            await prisma.component.deleteMany({
+              where: {
+                fe_id: { in: feIdsToDelete },
+                questionId: number_question_id
+              }
+            });
+
+            // 删除没有关联 AnswerItems 的 Answers
+            await prisma.answer.deleteMany({
+              where: {
+                questionId: number_question_id,
+                answerItems: {
+                  none: {}
                 }
               }
             });
-            // 删除所有相关的答卷
-            await prisma.answer.deleteMany({
-              where: { questionId: number_question_id }
-            });
-            updateFields.isPublished = false;
-            updateFields.answerCount = 0;
-            cacheData.answerCount = 0;
-            cacheData.isPublished = false;
           }
-        } else {
-          const fieldsToUpdate = ['isStar', 'isDeleted', 'isPublished', 'title', 'css', 'js', 'desc'];
-          fieldsToUpdate.forEach((field) => {
-            if (updateData[field] !== undefined) {
-              updateFields[field] = updateData[field];
-              cacheData[field] = updateData[field];
-            }
+
+          const answerCount = await prisma.answer.count({
+            where: { questionId: number_question_id }
           });
-
-          if (updateData.componentList) {
-            // 删除原有的组件
-            await prisma.component.deleteMany({
-              where: { questionId: number_question_id }
-            });
-            // 按顺序创建新的组件
-            // 准备用于批量创建的数据
-            const componentsData = updateData.componentList.map((component, i) => ({
-              fe_id: component.fe_id,
-              isHidden: component.isHidden ?? false,
-              isLocked: component.isLocked ?? false,
-              title: component.title,
-              type: component.type,
-              props: component.props,
-              questionId: number_question_id,
-              order: i // 使用索引作为顺序
-            }));
-
-            // 批量创建新的组件
-            await prisma.component.createMany({
-              data: componentsData
-            });
-            cacheData.componentList = componentsData;
-          } else {
-            cacheData.componentList = existing_question.componentList;
-          }
+          updateFields.answerCount = answerCount;
+          cacheData.answerCount = answerCount;
+          const componentsData = updateData.componentList.map((component) => ({
+            fe_id: component.fe_id,
+            isHidden: component.isHidden ?? false,
+            isLocked: component.isLocked ?? false,
+            title: component.title,
+            type: component.type,
+            props: component.props,
+            questionId: number_question_id,
+            order: component.order // 使用索引作为顺序
+          }));
+          await Promise.all(
+            componentsData.map((component) =>
+              prisma.component.upsert({
+                where: { fe_id: component.fe_id },
+                update: {
+                  isHidden: component.isHidden,
+                  isLocked: component.isLocked,
+                  title: component.title,
+                  type: component.type,
+                  props: component.props,
+                  order: component.order
+                },
+                create: component
+              })
+            )
+          );
+          cacheData.componentList = componentsData;
+        } else {
+          cacheData.componentList = existing_question.componentList;
         }
 
         if (Object.keys(updateFields).length > 0) {
@@ -181,7 +213,8 @@ export class QuestionService {
             desc: cacheData.desc ?? existing_question.desc,
             js: cacheData.js ?? existing_question.js,
             title: cacheData.title ?? existing_question.title,
-            componentList: cacheData.componentList ?? existing_question.componentList
+            componentList: cacheData.componentList ?? existing_question.componentList,
+            answerCount: existing_question.answerCount
           });
           // 保存到Redis缓存
           await this.redisService.cacheQuestionnaireEdit(question_id, cacheData);
@@ -190,7 +223,7 @@ export class QuestionService {
         return true;
       });
     } catch (error) {
-      if (error instanceof NotFoundException) {
+      if (error instanceof NotFoundException || error instanceof ForbiddenException) {
         throw error;
       }
       this.logger.error(`更新问卷失败: ${error}`, 'QuestionService');
