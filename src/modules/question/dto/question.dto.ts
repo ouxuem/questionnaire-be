@@ -1,7 +1,6 @@
 import { ApiProperty, OmitType, PartialType } from 'uni-nest';
 import { component_list_type } from '../../../typing/component_list_type';
 import { question_list_type } from '../../../typing/question_list_type';
-
 export class CreateQuestionVo {
   @ApiProperty({
     title: '问卷id',

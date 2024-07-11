@@ -73,6 +73,7 @@ export class QuestionController {
     @Query('page') page: string = '1',
     @Query('pageSize') pageSize: string = '10',
     @Query('keyword') keyword: string = '',
+    @User() user: type_jwt_user_data,
     @Query('isStar') isStar?: string,
     @Query('isDeleted') isDeleted?: string
   ) {
@@ -82,7 +83,7 @@ export class QuestionController {
     // 转换 isStar 和 isDeleted 为布尔值
     const isStarBool = isStar === 'true' ? true : isStar === 'false' ? false : undefined;
     const isDeletedBool = isDeleted === 'true' ? true : isDeleted === 'false' ? false : undefined;
-    return this.questionService.get_question_list(pageNumber, pageSizeNumber, keyword, isStarBool, isDeletedBool);
+    return this.questionService.get_question_list(pageNumber, pageSizeNumber, keyword, user.id, isStarBool, isDeletedBool);
   }
 
   // 彻底删除问卷

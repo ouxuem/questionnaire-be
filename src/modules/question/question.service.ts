@@ -231,14 +231,15 @@ export class QuestionService {
     }
   }
 
-  async get_question_list(page: number, pageSize: number, keyword: string, isStar?: boolean, isDeleted?: boolean) {
+  async get_question_list(page: number, pageSize: number, keyword: string, id: number, isStar?: boolean, isDeleted?: boolean) {
     try {
       const skip = (page - 1) * pageSize;
 
       const where: Prisma.QuestionWhereInput = {
         title: {
           contains: keyword
-        }
+        },
+        userId: id
       };
 
       // 如果 isStar 被指定，添加到查询条件
@@ -265,7 +266,8 @@ export class QuestionService {
           isStar: true,
           answerCount: true,
           createdAt: true,
-          isDeleted: true
+          isDeleted: true,
+          userId: true
         }
       });
 
@@ -276,7 +278,8 @@ export class QuestionService {
         isStar: q.isStar,
         answerCount: q.answerCount,
         createdAt: convertToChinaTime(q.createdAt.toISOString()),
-        isDeleted: q.isDeleted
+        isDeleted: q.isDeleted,
+        userId: q.userId // 包含 userId 在返回的数据中
       }));
       return {
         list: formattedQuestions,
