@@ -34,7 +34,7 @@ COPY ecosystem.config.js ./
 
 COPY .env ./
 
-RUN npx prisma generate
+# RUN npx prisma generate
 
 EXPOSE 3005
 
